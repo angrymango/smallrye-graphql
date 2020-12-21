@@ -29,7 +29,7 @@ import io.smallrye.graphql.schema.model.Schema;
 
 /**
  * Test the model creation
- * 
+ *
  * @author Phillip Kruger (phillip.kruger@redhat.com)
  */
 public class SchemaBuilderTest {
@@ -115,6 +115,17 @@ public class SchemaBuilderTest {
         } catch (SchemaBuilderException e) {
             // ok
         }
+    }
+
+    @Test
+    public void testSchemaWithInheritance() throws Exception {
+        Indexer indexer = new Indexer();
+        indexDirectory(indexer, "io/smallrye/graphql/index/inheritance");
+        IndexView index = indexer.complete();
+
+        Schema schema = SchemaBuilder.build(index);
+        LOG.info(toString(schema));
+        assertNotNull(schema);
     }
 
     public static String toString(Schema schema) {

@@ -1,10 +1,11 @@
 package io.smallrye.graphql.schema;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.lang.reflect.Modifier;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.AnnotationTarget;
@@ -102,7 +103,7 @@ public class SchemaBuilder {
 
         for (AnnotationInstance graphQLApiAnnotation : graphQLApiAnnotations) {
             ClassInfo apiClass = graphQLApiAnnotation.target().asClass();
-            List<MethodInfo> methods = apiClass.methods();
+            Map<List<ClassInfo>, List<MethodInfo>> methods = getMethods(apiClass);
             Optional<Group> group = GroupHelper.getGroup(graphQLApiAnnotation);
             addOperations(group, schema, methods);
         }
@@ -120,6 +121,23 @@ public class SchemaBuilder {
         referenceCreator.clear();
 
         return schema;
+    }
+
+    private Map<List<ClassInfo>, List<MethodInfo>> getMethods(ClassInfo apiClass) {
+        List<ClassInfo> key = new ArrayList<>(Collections.singletonList(apiClass));
+        List<MethodInfo> value = apiClass.methods().stream().filter(m -> !Modifier.isAbstract(m.flags()))
+                .collect(Collectors.toList());
+        Map<List<ClassInfo>, List<MethodInfo>> result = new HashMap<>();
+        result.put(key, value);
+
+        Stream.concat(Stream.of(apiClass.superName()), apiClass.interfaceNames().stream())
+                .map(n -> ScanningContext.getIndex().getClassByName(n))
+                .filter(Objects::nonNull)
+                .map(this::getMethods)
+                .forEach(c -> c.forEach(
+                        (k, v) -> result.put(Stream.concat(key.stream(), k.stream()).collect(Collectors.toList()), v)));
+
+        return result;
     }
 
     private void addTypesToSchema(Schema schema) {
@@ -220,24 +238,26 @@ public class SchemaBuilder {
      * to create those Operations.
      * 
      * @param schema the schema to add the operation to.
-     * @param methodInfoList the java methods.
+     * @param methodInfoMap the java methods.
      */
-    private void addOperations(Optional<Group> group, Schema schema, List<MethodInfo> methodInfoList) {
-        for (MethodInfo methodInfo : methodInfoList) {
-            Annotations annotationsForMethod = Annotations.getAnnotationsForMethod(methodInfo);
-            if (annotationsForMethod.containsOneOfTheseAnnotations(Annotations.QUERY)) {
-                Operation query = operationCreator.createOperation(methodInfo, OperationType.QUERY, null);
-                if (group.isPresent()) {
-                    schema.addGroupedQuery(group.get(), query);
-                } else {
-                    schema.addQuery(query);
-                }
-            } else if (annotationsForMethod.containsOneOfTheseAnnotations(Annotations.MUTATION)) {
-                Operation mutation = operationCreator.createOperation(methodInfo, OperationType.MUTATION, null);
-                if (group.isPresent()) {
-                    schema.addGroupedMutation(group.get(), mutation);
-                } else {
-                    schema.addMutation(mutation);
+    private void addOperations(Optional<Group> group, Schema schema, Map<List<ClassInfo>, List<MethodInfo>> methodInfoMap) {
+        for (List<ClassInfo> hierarchy : methodInfoMap.keySet()) {
+            for (MethodInfo methodInfo : methodInfoMap.get(hierarchy)) {
+                Annotations annotationsForMethod = Annotations.getAnnotationsForMethod(methodInfo);
+                if (annotationsForMethod.containsOneOfTheseAnnotations(Annotations.QUERY)) {
+                    Operation query = operationCreator.createOperation(methodInfo, hierarchy, OperationType.QUERY, null);
+                    if (group.isPresent()) {
+                        schema.addGroupedQuery(group.get(), query);
+                    } else {
+                        schema.addQuery(query);
+                    }
+                } else if (annotationsForMethod.containsOneOfTheseAnnotations(Annotations.MUTATION)) {
+                    Operation mutation = operationCreator.createOperation(methodInfo, hierarchy, OperationType.MUTATION, null);
+                    if (group.isPresent()) {
+                        schema.addGroupedMutation(group.get(), mutation);
+                    } else {
+                        schema.addMutation(mutation);
+                    }
                 }
             }
         }

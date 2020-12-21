@@ -3,6 +3,8 @@ package io.smallrye.graphql.schema.creator;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Collections;
+
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.Index;
@@ -30,7 +32,7 @@ public class OperationCreatorTest {
         MethodInfo method = classByName.method("nonPublicQuery");
 
         try {
-            operationCreator().createOperation(method, OperationType.QUERY, null);
+            operationCreator().createOperation(method, Collections.singletonList(classByName), OperationType.QUERY, null);
             fail();
         } catch (IllegalArgumentException expected) {
         }
@@ -43,7 +45,8 @@ public class OperationCreatorTest {
         ClassInfo classByName = complete.getClassByName(DotName.createSimple(TestApi.class.getName()));
         MethodInfo method = classByName.method("publicQuery");
 
-        final Operation operation = operationCreator().createOperation(method, OperationType.QUERY, null);
+        final Operation operation = operationCreator().createOperation(method, Collections.singletonList(classByName),
+                OperationType.QUERY, null);
 
         assertEquals("publicQuery", operation.getName());
     }

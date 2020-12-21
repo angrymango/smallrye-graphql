@@ -1,12 +1,12 @@
 package io.smallrye.graphql.schema.creator;
 
 import java.lang.reflect.Modifier;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import org.jboss.jandex.DotName;
-import org.jboss.jandex.MethodInfo;
-import org.jboss.jandex.Type;
+import org.jboss.jandex.*;
 
 import io.smallrye.graphql.schema.Annotations;
 import io.smallrye.graphql.schema.SchemaBuilderException;
@@ -47,7 +47,7 @@ public class OperationCreator {
      * @param type
      * @return a Operation that defines this GraphQL Operation
      */
-    public Operation createOperation(MethodInfo methodInfo, OperationType operationType,
+    public Operation createOperation(MethodInfo methodInfo, List<ClassInfo> hierarchy, OperationType operationType,
             final io.smallrye.graphql.schema.model.Type type) {
 
         if (!Modifier.isPublic(methodInfo.flags())) {
@@ -56,8 +56,14 @@ public class OperationCreator {
                             + " is used as an operation, but is not public");
         }
 
+        if (hierarchy.isEmpty()) {
+            hierarchy = Collections.singletonList(methodInfo.declaringClass());
+        }
+
+        Map<Type, Type> typeMap = buildTypeMap(hierarchy);
+
         Annotations annotationsForMethod = Annotations.getAnnotationsForMethod(methodInfo);
-        Type fieldType = methodInfo.returnType();
+        Type fieldType = resolveTypeParameter(typeMap, methodInfo.returnType());
 
         // Name
         String name = getOperationName(methodInfo, operationType, annotationsForMethod);
@@ -69,7 +75,7 @@ public class OperationCreator {
         validateFieldType(methodInfo, operationType);
         Reference reference = referenceCreator.createReferenceForOperationField(fieldType, annotationsForMethod);
 
-        Operation operation = new Operation(methodInfo.declaringClass().name().toString(),
+        Operation operation = new Operation(hierarchy.get(0).name().toString(),
                 methodInfo.name(),
                 MethodHelper.getPropertyName(Direction.OUT, methodInfo.name()),
                 name,
@@ -98,13 +104,67 @@ public class OperationCreator {
         operation.setDefaultValue(DefaultValueHelper.getDefaultValue(annotationsForMethod).orElse(null));
 
         // Arguments
-        List<Type> parameters = methodInfo.parameters();
+        List<Type> parameters = resolveTypeParameters(typeMap, methodInfo.parameters());
         for (short i = 0; i < parameters.size(); i++) {
             Optional<Argument> maybeArgument = argumentCreator.createArgument(operation, methodInfo, i);
             maybeArgument.ifPresent(operation::addArgument);
         }
 
         return operation;
+    }
+
+    private Map<Type, Type> buildTypeMap(List<ClassInfo> hierarchy) {
+        HashMap<Type, Type> resolved = new HashMap<>();
+        if (hierarchy.size() > 0) {
+            ClassInfo classInfo = hierarchy.get(hierarchy.size() - 1);
+            if (!classInfo.typeParameters().isEmpty() && hierarchy.size() > 1) {
+                int idx = hierarchy.size() - 2;
+                List<TypeVariable> typeParameters = classInfo.typeParameters();
+                Type[] resolvedTypes = new Type[typeParameters.size()];
+                Arrays.fill(resolvedTypes, null);
+                Consumer<List<Type>> update = (List<Type> args) -> IntStream.range(0, typeParameters.size())
+                        .forEach(i -> {
+                            if (!args.get(i).equals(typeParameters.get(i))) {
+                                resolvedTypes[i] = args.get(i);
+                            }
+                        });
+                while (idx >= 0 && Arrays.asList(resolvedTypes).contains(null)) {
+                    ClassInfo ancestor = hierarchy.get(idx);
+                    if (ancestor.interfaceNames().contains(classInfo.name())) {
+                        ancestor.interfaceTypes().stream()
+                                .filter(it -> it.name().equals(classInfo.name()))
+                                .map(it -> it.asParameterizedType().arguments())
+                                .forEach(update);
+                    } else {
+                        update.accept(ancestor.superClassType().asParameterizedType().arguments());
+                    }
+
+                    idx--;
+                }
+
+                IntStream.range(0, typeParameters.size()).forEach(i -> resolved.put(typeParameters.get(i), resolvedTypes[i]));
+            }
+        }
+
+        return resolved;
+    }
+
+    private List<Type> resolveTypeParameters(Map<Type, Type> typeMap, List<Type> types) {
+        return types.stream().map(t -> resolveTypeParameter(typeMap, t)).collect(Collectors.toList());
+    }
+
+    private Type resolveTypeParameter(Map<Type, Type> typeMap, Type type) {
+        if (typeMap.containsKey(type)) {
+            return typeMap.get(type);
+        } else if (type.kind() == Type.Kind.PARAMETERIZED_TYPE) {
+            ParameterizedType parameterizedType = type.asParameterizedType();
+            return ParameterizedType.create(
+                    parameterizedType.name(),
+                    parameterizedType.arguments().stream().map(t -> typeMap.getOrDefault(t, t)).toArray(Type[]::new),
+                    parameterizedType.owner());
+        }
+
+        return type;
     }
 
     private static void validateFieldType(MethodInfo methodInfo, OperationType operationType) {

@@ -1,9 +1,6 @@
 package io.smallrye.graphql.schema.creator.type;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
@@ -129,7 +126,8 @@ public class TypeCreator implements Creator<Type> {
             List<MethodParameterInfo> methodParameterInfos = sourceFields.get(classInfo.name());
             for (MethodParameterInfo methodParameterInfo : methodParameterInfos) {
                 MethodInfo methodInfo = methodParameterInfo.method();
-                Operation o = operationCreator.createOperation(methodInfo, OperationType.QUERY, type);
+                Operation o = operationCreator.createOperation(methodInfo, Collections.singletonList(classInfo),
+                        OperationType.QUERY, type);
                 operations.put(o.getName(), o);
             }
         }
