@@ -3,7 +3,7 @@
     <parent>
         <artifactId>smallrye-graphql-client-parent</artifactId>
         <groupId>io.smallrye</groupId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>1.1.1-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -12,8 +12,8 @@
     <name>SmallRye: GraphQL Client :: Artifact with all dependencies</name>
 
     <properties>
-        <version.smallrye.config>2.0.0</version.smallrye.config>
-        <version.resteasy.client>4.5.8.Final</version.resteasy.client>
+        <version.smallrye.config>2.0.2</version.smallrye.config>
+        <version.resteasy.client>4.6.0.Final</version.resteasy.client>
     </properties>
 
     <dependencies>
