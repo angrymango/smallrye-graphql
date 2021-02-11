@@ -42,7 +42,8 @@ public class ArgumentCreator {
      * @param position the argument position
      * @return an Argument
      */
-    public Optional<Argument> createArgument(Operation operation, MethodInfo methodInfo, short position) {
+    public Optional<Argument> createArgument(Operation operation, MethodInfo methodInfo, short position,
+            Type resolvedArgumentType) {
         if (position >= methodInfo.parameters().size()) {
             throw new SchemaBuilderException(
                     "Can not create argument for parameter [" + position + "] "
@@ -61,7 +62,7 @@ public class ArgumentCreator {
             String name = annotationsForThisArgument.getOneOfTheseAnnotationsValue(Annotations.NAME)
                     .orElse(defaultName);
 
-            // Description    
+            // Description
             Optional<String> maybeDescription = DescriptionHelper.getDescriptionForField(annotationsForThisArgument,
                     argumentType);
 
@@ -69,7 +70,8 @@ public class ArgumentCreator {
             if (isSourceAnnotationOnSourceOperation(annotationsForThisArgument, operation)) {
                 reference = referenceCreator.createReferenceForSourceArgument(argumentType, annotationsForThisArgument);
             } else if (!argumentType.name().equals(CONTEXT)) {
-                reference = referenceCreator.createReferenceForOperationArgument(argumentType, annotationsForThisArgument);
+                reference = referenceCreator.createReferenceForOperationArgument(resolvedArgumentType,
+                        annotationsForThisArgument);
             } else {
                 reference = CONTEXT_REF;
             }
@@ -80,6 +82,10 @@ public class ArgumentCreator {
                     name,
                     maybeDescription.orElse(null),
                     reference);
+
+            if (!resolvedArgumentType.equals(argumentType)) {
+                argument.setGenericArgument(true);
+            }
 
             // NotNull
             if (NonNullHelper.markAsNonNull(argumentType, annotationsForThisArgument)) {

@@ -13,6 +13,7 @@ public final class Argument extends Field {
 
     private String methodArgumentName; // This is the java method argument name
     private boolean sourceArgument = false; // Flag if this is a source argument
+    private boolean genericArgument = false; // Flag if this is an generic argument
 
     public Argument() {
     }
@@ -37,5 +38,13 @@ public final class Argument extends Field {
 
     public boolean isSourceArgument() {
         return sourceArgument;
+    }
+
+    public boolean isGenericArgument() {
+        return genericArgument;
+    }
+
+    public void setGenericArgument(boolean genericArgument) {
+        this.genericArgument = genericArgument;
     }
 }

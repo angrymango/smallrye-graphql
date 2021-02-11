@@ -126,7 +126,7 @@ public class TypeCreator implements Creator<Type> {
             List<MethodParameterInfo> methodParameterInfos = sourceFields.get(classInfo.name());
             for (MethodParameterInfo methodParameterInfo : methodParameterInfos) {
                 MethodInfo methodInfo = methodParameterInfo.method();
-                Operation o = operationCreator.createOperation(methodInfo, Collections.singletonList(classInfo),
+                Operation o = operationCreator.createOperation(methodInfo, Collections.emptyList(),
                         OperationType.QUERY, type);
                 operations.put(o.getName(), o);
             }

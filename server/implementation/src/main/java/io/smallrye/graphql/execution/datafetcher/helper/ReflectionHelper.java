@@ -18,6 +18,7 @@ import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.execution.context.SmallRyeContext;
 import io.smallrye.graphql.execution.event.EventEmitter;
 import io.smallrye.graphql.execution.event.InvokeInfo;
+import io.smallrye.graphql.schema.model.Argument;
 import io.smallrye.graphql.schema.model.Field;
 import io.smallrye.graphql.schema.model.Operation;
 import io.smallrye.graphql.spi.ClassloadingService;
@@ -115,6 +116,8 @@ public class ReflectionHelper {
                 if (argument.hasWrapper()) {
                     Class<?> clazz = classloadingService.loadClass(argument.getWrapper().getWrapperClassName());
                     cl.add(clazz);
+                } else if (((Argument) argument).isGenericArgument()) {
+                    cl.add(Object.class);
                 } else {
                     Class<?> clazz = classloadingService.loadClass(argument.getReference().getClassName());
                     cl.add(clazz);

@@ -75,7 +75,7 @@ public class OperationCreator {
         validateFieldType(methodInfo, operationType);
         Reference reference = referenceCreator.createReferenceForOperationField(fieldType, annotationsForMethod);
 
-        Operation operation = new Operation(hierarchy.get(0).name().toString(),
+        Operation operation = new Operation(hierarchy.get(0).name().toString(), // methodInfo.declaringClass().name().toString(), //
                 methodInfo.name(),
                 MethodHelper.getPropertyName(Direction.OUT, methodInfo.name()),
                 name,
@@ -105,8 +105,17 @@ public class OperationCreator {
 
         // Arguments
         List<Type> parameters = resolveTypeParameters(typeMap, methodInfo.parameters());
+        List<String> parameterNames = new ArrayList<>();
         for (short i = 0; i < parameters.size(); i++) {
-            Optional<Argument> maybeArgument = argumentCreator.createArgument(operation, methodInfo, i);
+            parameterNames.add(methodInfo.parameterName(i));
+        }
+        MethodInfo resolvedMethodInfo = MethodInfo.create(methodInfo.declaringClass(), methodInfo.name(),
+                parameterNames.toArray(new String[] {}),
+                parameters.toArray(new Type[] {}), fieldType, methodInfo.flags(),
+                methodInfo.typeParameters().toArray(new TypeVariable[] {}), methodInfo.exceptions().toArray(new Type[] {}));
+        for (short i = 0; i < parameters.size(); i++) {
+            Optional<Argument> maybeArgument = argumentCreator.createArgument(operation, methodInfo, i,
+                    resolveTypeParameter(typeMap, methodInfo.parameters().get(i)));
             maybeArgument.ifPresent(operation::addArgument);
         }
 
